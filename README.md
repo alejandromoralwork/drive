@@ -80,6 +80,46 @@ Your drive will be available at: `https://alejandromoralwork.github.io/drive/`
 
 3. The file will automatically appear in your drive interface
 
+### Quick Encrypt (One-Line Command)
+
+Encrypt a file without using the script:
+
+**Linux/macOS:**
+```bash
+openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in yourfile.pdf -out files/yourfile.pdf.enc
+```
+
+**With password in command:**
+```bash
+openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in yourfile.pdf -out files/yourfile.pdf.enc -k "YOUR_PASSWORD"
+```
+
+### Quick Decrypt (Download from Terminal)
+
+Download and decrypt a file directly from your GitHub repository:
+
+**Interactive (asks for password):**
+```bash
+curl -sL "https://raw.githubusercontent.com/alejandromoralwork/drive/main/files/yourfile.pdf.enc" | \
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 > yourfile.pdf
+```
+
+**With password in command:**
+```bash
+curl -sL "https://raw.githubusercontent.com/alejandromoralwork/drive/main/files/yourfile.pdf.enc" | \
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 -k "YOUR_PASSWORD" > yourfile.pdf
+```
+
+**Create an alias for easier use:**
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+alias drive-get='function _drive_get(){ curl -sL "https://raw.githubusercontent.com/alejandromoralwork/drive/main/files/$1.enc" | openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 > "$1"; }; _drive_get'
+
+# Usage:
+drive-get yourfile.pdf
+# Then enter your password when prompted
+```
+
 ### Accessing Files
 
 1. Visit your GitHub Pages URL
