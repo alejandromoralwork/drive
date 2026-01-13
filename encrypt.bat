@@ -63,10 +63,17 @@ if not exist "%~1" (
 echo Encrypting: %~nx1...
 
 REM Encrypt using AES-256-CBC with PBKDF2
-openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in "%~1" -out "files\%~nx1.enc" -pass pass:%PASSWORD%
+openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in "%~1" -out "files\%~nx1.enc" -k %PASSWORD% 2>nul
 
 if %errorlevel% equ 0 (
     echo [OK] Encrypted: files\%~nx1.enc
+    
+    REM Delete the original unencrypted file
+    del "%~1" >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo     -^> Deleted original: %~1
+    )
+    
     set /a SUCCESS_COUNT+=1
 ) else (
     echo [FAIL] Failed to encrypt: %~1

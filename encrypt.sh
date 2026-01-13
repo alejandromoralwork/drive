@@ -63,20 +63,17 @@ for FILE in "$@"; do
     
     echo "Encrypting: $FILENAME..."
     
-    # Encrypt using AES-256-CBC (compatible with Web Crypto API approach)
-    # Note: For exact Web Crypto API compatibility, we need to use a custom approach
-    # This creates a simple encrypted file that can be decrypted with the password
-    
-    # Generate a random salt
-    SALT=$(openssl rand -hex 16)
-    
-    # Derive key using PBKDF2 (matching the JS implementation)
-    KEY=$(echo -n "$PASSWORD" | openssl enc -aes-256-cbc -S "$SALT" -pbkdf2 -iter 100000 -P | grep key= | cut -d'=' -f2)
-    
-    # Encrypt the file
-    if openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in "$FILE" -out "$OUTPUT" -pass pass:"$PASSWORD"; then
+    # Encrypt the file using AES-256-CBC with PBKDF2
+    # The -pass option provides the password non-interactively
+    if openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in "$FILE" -out "$OUTPUT" -k "$PASSWORD" 2>/dev/null; then
         SIZE=$(du -h "$OUTPUT" | cut -f1)
         echo "✓ Encrypted: $OUTPUT ($SIZE)"
+        
+        # Delete the original unencrypted file
+        if rm "$FILE" 2>/dev/null; then
+            echo "  → Deleted original: $FILE"
+        fi
+        
         ((SUCCESS_COUNT++))
     else
         echo "✗ Failed to encrypt: $FILE"
