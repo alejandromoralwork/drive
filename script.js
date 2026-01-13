@@ -135,27 +135,55 @@ async function downloadFile(filepath, filename, event) {
             throw new Error('File not found on GitHub. Make sure the encrypted file is pushed to the repository.');
         }
         
-        const encryptedData = await response.arrayBuffer();
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
         
-        // Derive key if not already done
-        if (!encryptionKey) {
-            const password = sessionStorage.getItem('userPassword');
-            if (!password) {
-                throw new Error('Session expired. Please login again.');
-            }
-            encryptionKey = await deriveKey(password);
+        // Get password
+        const password = sessionStorage.getItem('userPassword');
+        if (!password) {
+            throw new Error('Session expired. Please login again.');
         }
         
-        // Extract IV and data (first 12 bytes are IV for AES-GCM)
-        const iv = encryptedData.slice(0, 12);
-        const data = encryptedData.slice(12);
+        // Check if it's OpenSSL format (starts with "Salted__")
+        const isOpenSSL = bytes.length > 8 && 
+                         String.fromCharCode(...bytes.slice(0, 8)) === 'Salted__';
         
-        // Decrypt
-        const decryptedData = await crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv: new Uint8Array(iv) },
-            encryptionKey,
-            data
-        );
+        let decryptedData;
+        
+        if (isOpenSSL) {
+            // Decrypt using CryptoJS (OpenSSL format from shell script)
+            const wordArray = CryptoJS.lib.WordArray.create(bytes);
+            const decrypted = CryptoJS.AES.decrypt(
+                { ciphertext: wordArray },
+                password,
+                {
+                    format: CryptoJS.format.OpenSSL,
+                    mode: CryptoJS.mode.CBC,
+                    padding: CryptoJS.pad.Pkcs7
+                }
+            );
+            
+            // Convert to Uint8Array
+            const decryptedStr = decrypted.toString(CryptoJS.enc.Latin1);
+            decryptedData = new Uint8Array(decryptedStr.length);
+            for (let i = 0; i < decryptedStr.length; i++) {
+                decryptedData[i] = decryptedStr.charCodeAt(i);
+            }
+        } else {
+            // Decrypt using Web Crypto API (AES-GCM format from Python script)
+            if (!encryptionKey) {
+                encryptionKey = await deriveKey(password);
+            }
+            
+            const iv = arrayBuffer.slice(0, 12);
+            const data = arrayBuffer.slice(12);
+            
+            decryptedData = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: new Uint8Array(iv) },
+                encryptionKey,
+                data
+            );
+        }
         
         // Create download link
         const blob = new Blob([decryptedData]);
