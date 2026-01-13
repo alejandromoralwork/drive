@@ -151,32 +151,52 @@ async function downloadFile(filepath, filename, event) {
         let decryptedData;
         
         if (isOpenSSL) {
-            // Decrypt using CryptoJS (OpenSSL format from shell script)
-            // Convert Uint8Array to Base64 for CryptoJS
-            let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            const base64 = btoa(binary);
+            // OpenSSL format: "Salted__" + 8-byte salt + encrypted data
+            const salt = bytes.slice(8, 16);
+            const ciphertext = bytes.slice(16);
             
-            // Decrypt with CryptoJS using PBKDF2 (100000 iterations)
-            const decrypted = CryptoJS.AES.decrypt(base64, password, {
-                format: CryptoJS.format.OpenSSL,
-                mode: CryptoJS.mode.CBC,
-                padding: CryptoJS.pad.Pkcs7,
-                keySize: 256/32,
-                iterations: 100000,
-                hasher: CryptoJS.algo.SHA256
-            });
+            // Derive key and IV using PBKDF2 (matching OpenSSL's -pbkdf2 -iter 100000)
+            const passwordBytes = new TextEncoder().encode(password);
+            const keyMaterial = await crypto.subtle.importKey(
+                'raw',
+                passwordBytes,
+                'PBKDF2',
+                false,
+                ['deriveBits']
+            );
             
-            // Convert WordArray to Uint8Array
-            const words = decrypted.words;
-            const sigBytes = decrypted.sigBytes;
-            decryptedData = new Uint8Array(sigBytes);
+            const derivedBits = await crypto.subtle.deriveBits(
+                {
+                    name: 'PBKDF2',
+                    salt: salt,
+                    iterations: 100000,
+                    hash: 'SHA-256'
+                },
+                keyMaterial,
+                384 // 32 bytes key + 16 bytes IV = 48 bytes * 8
+            );
             
-            for (let i = 0; i < sigBytes; i++) {
-                decryptedData[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
-            }
+            const derived = new Uint8Array(derivedBits);
+            const key = derived.slice(0, 32);  // 256-bit key
+            const iv = derived.slice(32, 48);   // 128-bit IV
+            
+            // Import the key for AES-CBC
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw',
+                key,
+                { name: 'AES-CBC' },
+                false,
+                ['decrypt']
+            );
+            
+            // Decrypt
+            const decrypted = await crypto.subtle.decrypt(
+                { name: 'AES-CBC', iv: iv },
+                cryptoKey,
+                ciphertext
+            );
+            
+            decryptedData = new Uint8Array(decrypted);
         } else {
             // Decrypt using Web Crypto API (AES-GCM format from Python script)
             if (!encryptionKey) {
