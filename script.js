@@ -104,7 +104,7 @@ async function loadFiles() {
                     <strong>${file.name}</strong><br>
                     <small>${file.size}</small>
                 </div>
-                <button onclick="downloadFile('${file.path}', '${file.name}')">Download</button>
+                <button onclick="downloadFile('${file.path}', '${file.name}', event)">Download</button>
             </div>
         `).join('');
     } catch (error) {
@@ -120,16 +120,19 @@ function formatBytes(bytes) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
-async function downloadFile(filepath, filename) {
+async function downloadFile(filepath, filename, event) {
+    const button = event ? event.target : null;
+    
     try {
-        const button = event.target;
-        button.textContent = 'Decrypting...';
-        button.disabled = true;
+        if (button) {
+            button.textContent = 'Decrypting...';
+            button.disabled = true;
+        }
 
         // Fetch encrypted file from GitHub
         const response = await fetch(filepath);
         if (!response.ok) {
-            throw new Error('Failed to download file');
+            throw new Error('File not found on GitHub. Make sure the encrypted file is pushed to the repository.');
         }
         
         const encryptedData = await response.arrayBuffer();
@@ -143,7 +146,7 @@ async function downloadFile(filepath, filename) {
             encryptionKey = await deriveKey(password);
         }
         
-        // Extract IV and data
+        // Extract IV and data (first 12 bytes are IV for AES-GCM)
         const iv = encryptedData.slice(0, 12);
         const data = encryptedData.slice(12);
         
@@ -163,13 +166,15 @@ async function downloadFile(filepath, filename) {
         link.click();
         URL.revokeObjectURL(url);
         
-        button.textContent = 'Download';
-        button.disabled = false;
+        if (button) {
+            button.textContent = 'Download';
+            button.disabled = false;
+        }
     } catch (error) {
         alert('Error downloading file: ' + error.message);
-        if (event.target) {
-            event.target.textContent = 'Download';
-            event.target.disabled = false;
+        if (button) {
+            button.textContent = 'Download';
+            button.disabled = false;
         }
     }
 }
