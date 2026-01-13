@@ -11,20 +11,18 @@ async function deriveKey(password) {
     const keyMaterial = await crypto.subtle.importKey(
         'raw',
         encoder.encode(password),
-async function checkPassword() {
-    const input = document.getElementById('password').value;
-    const hashedInput = await hashPassword(input);
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits', 'deriveKey']
+    );
     
-    if (hashedInput === PASSWORD_HASH) {
-        encryptionKey = await deriveKey(input);
-        sessionStorage.setItem('authenticated', 'true');
-        sessionStorage.setItem('userPassword', input);
-        showDrive();
-    } else {
-        document.getElementById('error-message').textContent = 'Incorrect password';
-        document.getElementById('password').value = '';
-    }
-}       },
+    return await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: encoder.encode('drive-salt-2026'),
+            iterations: 100000,
+            hash: 'SHA-256'
+        },
         keyMaterial,
         { name: 'AES-GCM', length: 256 },
         false,
@@ -45,7 +43,9 @@ async function checkPassword() {
     const hashedInput = await hashPassword(input);
     
     if (hashedInput === PASSWORD_HASH) {
+        encryptionKey = await deriveKey(input);
         sessionStorage.setItem('authenticated', 'true');
+        sessionStorage.setItem('userPassword', input);
         showDrive();
     } else {
         document.getElementById('error-message').textContent = 'Incorrect password';
@@ -57,14 +57,14 @@ function showDrive() {
     document.getElementById('login-container').style.display = 'none';
     document.getElementById('drive-container').style.display = 'block';
     loadFiles();
+}
+
 function logout() {
     sessionStorage.removeItem('authenticated');
     sessionStorage.removeItem('userPassword');
     encryptionKey = null;
     document.getElementById('login-container').style.display = 'flex';
     document.getElementById('drive-container').style.display = 'none';
-    document.getElementById('password').value = '';
-}   document.getElementById('drive-container').style.display = 'none';
     document.getElementById('password').value = '';
 }
 
@@ -172,6 +172,8 @@ async function downloadFile(filepath, filename) {
             event.target.disabled = false;
         }
     }
+}
+
 // Check if already authenticated
 window.onload = async function() {
     if (sessionStorage.getItem('authenticated') === 'true') {
@@ -187,7 +189,5 @@ window.onload = async function() {
         if (e.key === 'Enter') {
             checkPassword();
         }
-    });
-};      }
     });
 };
