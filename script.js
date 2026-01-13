@@ -152,22 +152,30 @@ async function downloadFile(filepath, filename, event) {
         
         if (isOpenSSL) {
             // Decrypt using CryptoJS (OpenSSL format from shell script)
-            const wordArray = CryptoJS.lib.WordArray.create(bytes);
-            const decrypted = CryptoJS.AES.decrypt(
-                { ciphertext: wordArray },
-                password,
-                {
-                    format: CryptoJS.format.OpenSSL,
-                    mode: CryptoJS.mode.CBC,
-                    padding: CryptoJS.pad.Pkcs7
-                }
-            );
+            // Convert Uint8Array to Base64 for CryptoJS
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            const base64 = btoa(binary);
             
-            // Convert to Uint8Array
-            const decryptedStr = decrypted.toString(CryptoJS.enc.Latin1);
-            decryptedData = new Uint8Array(decryptedStr.length);
-            for (let i = 0; i < decryptedStr.length; i++) {
-                decryptedData[i] = decryptedStr.charCodeAt(i);
+            // Decrypt with CryptoJS using PBKDF2 (100000 iterations)
+            const decrypted = CryptoJS.AES.decrypt(base64, password, {
+                format: CryptoJS.format.OpenSSL,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7,
+                keySize: 256/32,
+                iterations: 100000,
+                hasher: CryptoJS.algo.SHA256
+            });
+            
+            // Convert WordArray to Uint8Array
+            const words = decrypted.words;
+            const sigBytes = decrypted.sigBytes;
+            decryptedData = new Uint8Array(sigBytes);
+            
+            for (let i = 0; i < sigBytes; i++) {
+                decryptedData[i] = (words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff;
             }
         } else {
             // Decrypt using Web Crypto API (AES-GCM format from Python script)
@@ -200,6 +208,7 @@ async function downloadFile(filepath, filename, event) {
         }
     } catch (error) {
         alert('Error downloading file: ' + error.message);
+        console.error('Decryption error:', error);
         if (button) {
             button.textContent = 'Download';
             button.disabled = false;
