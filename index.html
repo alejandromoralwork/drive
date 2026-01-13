@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Private Drive</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="login-container">
+        <div class="login-box">
+            <h1>Private Drive</h1>
+            <input type="password" id="password" placeholder="Enter password">
+            <button onclick="checkPassword()">Access</button>
+            <p id="error-message"></p>
+        </div>
+    </div>
+
+    <div id="drive-container" style="display: none;">
+        <header>
+            <h1>My Private Drive</h1>
+            <button onclick="logout()">Logout</button>
+        </header>
+        <div class="file-list">
+            <h2>Files</h2>
+            <div id="files"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
