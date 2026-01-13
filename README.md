@@ -89,7 +89,7 @@ Encrypt a file without using the script:
 openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in yourfile.pdf -out files/yourfile.pdf.enc
 ```
 
-**With password in command:**d
+**With password in command:**
 ```bash
 openssl enc -aes-256-cbc -salt -pbkdf2 -iter 100000 -in yourfile.pdf -out files/yourfile.pdf.enc -k "YOUR_PASSWORD"
 ```
